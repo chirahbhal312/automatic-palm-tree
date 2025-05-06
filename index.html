@@ -1,126 +1,147 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Cube Interaction with Raycaster and WebGPU</title>
-    <link type="text/css" rel="stylesheet" href="main.css">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebXR AR Cat Placement</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+          "three/examples/jsm/webxr/ARButton.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js"
+        }
+      }
+    </script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+      import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 
-<div id="info">
-    <a href="https://threejs.org" target="_blank" rel="noopener">three.js AR Interaction</a>
-</div>
+      let camera, scene, renderer;
+      let controller;
+      let reticle;
+      let hitTestSource = null;
+      let hitTestSourceRequested = false;
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/jsm/webxr/XRButton.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/jsm/webxr/XRControllerModelFactory.js"></script>
+      init();
+      animate();
 
-<script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js';
-    import { XRButton } from 'https://cdn.jsdelivr.net/npm/three@0.132.2/examples/jsm/webxr/XRButton.js';
-    import { XRControllerModelFactory } from 'https://cdn.jsdelivr.net/npm/three@0.132.2/examples/jsm/webxr/XRControllerModelFactory.js';
-
-    const clock = new THREE.Clock();
-    let container, camera, scene, raycaster, renderer, controller, cube;
-    let INTERSECTED;
-
-    init();
-
-    function init() {
-        container = document.createElement('div');
-        document.body.appendChild(container);
-
+      function init() {
+        // Set up the scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x505050);
 
-        // AR camera setup
-        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 10);
-        camera.position.set(0, 1.6, 3);  // Default position for AR view
-        scene.add(camera);
+        // Set up the camera
+        camera = new THREE.PerspectiveCamera(
+          70,
+          window.innerWidth / window.innerHeight,
+          0.01,
+          20
+        );
 
-        // Create a single cube
-        const geometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-        const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
-        cube = new THREE.Mesh(geometry, material);
-        cube.position.set(0, 1, -2);  // Initial position of the cube in AR space
-        scene.add(cube);
-
-        // Add lighting
-        scene.add(new THREE.HemisphereLight(0xa5a5a5, 0x898989, 3));
-        const light = new THREE.DirectionalLight(0xffffff, 3);
-        light.position.set(1, 1, 1).normalize();
-        scene.add(light);
-
-        // Set up raycaster for controller interaction
-        raycaster = new THREE.Raycaster();
-
-        // Set up WebGPU renderer for efficient rendering
-        renderer = new THREE.WebGPURenderer({ 
-            antialias: true, 
-            forceWebGL: true, 
-            colorBufferType: THREE.UnsignedByteType, 
-            multiview: true 
-        });
+        // Set up the renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setAnimationLoop(animate);
         renderer.xr.enabled = true;
-        container.appendChild(renderer.domElement);
+        document.body.appendChild(renderer.domElement);
 
-        // Set up XR controller and interactions
+        // Add AR button
+        document.body.appendChild(
+          ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] })
+        );
+
+        // Set up the controller
         controller = renderer.xr.getController(0);
-        controller.addEventListener('selectstart', onSelectStart);
-        controller.addEventListener('selectend', onSelectEnd);
-        controller.addEventListener('connected', function (event) {
-            const targetRayMode = event.data.targetRayMode;
-            if (targetRayMode === 'tracked-pointer' || targetRayMode === 'gaze') {
-                this.add(buildController(event.data));
-            }
-        });
-        controller.addEventListener('disconnected', function () {
-            this.remove(this.children[0]);
-        });
+        controller.addEventListener('select', onSelect);
         scene.add(controller);
 
-        const controllerModelFactory = new XRControllerModelFactory();
-        const controllerGrip = renderer.xr.getControllerGrip(0);
-        controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
-        scene.add(controllerGrip);
+        // Set up the reticle
+        reticle = new THREE.Mesh(
+          new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
+          new THREE.MeshBasicMaterial({ color: 0x0fff00 })
+        );
+        reticle.matrixAutoUpdate = false;
+        reticle.visible = false;
+        scene.add(reticle);
 
-        // Add XR button for AR mode
-        document.body.appendChild(XRButton.createButton(renderer));
-    }
+        // Handle window resize
+        window.addEventListener('resize', onWindowResize, false);
+      }
 
-    function onSelectStart() {
-        this.userData.isSelecting = true;
-    }
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
 
-    function onSelectEnd() {
-        this.userData.isSelecting = false;
-    }
-
-    function buildController(data) {
-        let geometry, material;
-        switch (data.targetRayMode) {
-            case 'tracked-pointer':
-                geometry = new THREE.BufferGeometry();
-                geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, -1], 3));
-                geometry.setAttribute('color', new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3));
-                material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
-                return new THREE.Line(geometry, material);
-            case 'gaze':
-                geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, -1);
-                material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
-                return new THREE.Mesh(geometry, material);
+      function onSelect() {
+        if (reticle.visible) {
+          const loader = new GLTFLoader();
+          loader.load('cat.glb', function (gltf) {
+            const model = gltf.scene;
+            model.scale.set(0.2, 0.2, 0.2); // Adjust scale as needed
+            model.position.setFromMatrixPosition(reticle.matrix);
+            model.quaternion.setFromRotationMatrix(reticle.matrix);
+            scene.add(model);
+          });
         }
-    }
+      }
 
-    function animate() {
-        raycaster.update(controller);
+      function animate() {
+        renderer.setAnimationLoop(render);
+      }
+
+      function render(timestamp, frame) {
+        if (frame) {
+          const referenceSpace = renderer.xr.getReferenceSpace();
+          const session = renderer.xr.getSession();
+
+          if (!hitTestSourceRequested) {
+            session.requestReferenceSpace('viewer').then(function (refSpace) {
+              session
+                .requestHitTestSource({ space: refSpace })
+                .then(function (source) {
+                  hitTestSource = source;
+                });
+            });
+
+            session.addEventListener('end', function () {
+              hitTestSourceRequested = false;
+              hitTestSource = null;
+            });
+
+            hitTestSourceRequested = true;
+          }
+
+          if (hitTestSource) {
+            const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+            if (hitTestResults.length) {
+              const hit = hitTestResults[0];
+              const pose = hit.getPose(referenceSpace);
+
+              reticle.visible = true;
+              reticle.matrix.fromArray(pose.transform.matrix);
+            } else {
+              reticle.visible = false;
+            }
+          }
+        }
+
         renderer.render(scene, camera);
-    }
-</script>
-
-</body>
+      }
+    </script>
+  </body>
 </html>
