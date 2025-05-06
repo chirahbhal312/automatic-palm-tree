@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>WebXR AR: Dog & Cat Placement</title>
+  <title>WebXR AR: Cat Placement</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script type="importmap">
     {
@@ -20,40 +20,9 @@
       overflow: hidden;
       font-family: sans-serif;
     }
-    #model-buttons {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 10px;
-      z-index: 1;
-    }
-    #model-buttons {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 1;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 20px;
-  border-radius: 10px;
-}
-
-    .model-button.active {
-      background-color: #007bff;
-      color: white;
-    }
   </style>
 </head>
 <body>
-  <div id="model-buttons">
-    <button id="catButton" class="model-button active">Cat</button>
-    <button id="dogButton" class="model-button">Dog</button>
-  </div>
   <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -61,23 +30,17 @@
     import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
     let camera, scene, renderer;
-    let controller;
-    let reticle;
+    let controller, reticle;
     let hitTestSource = null;
     let hitTestSourceRequested = false;
-
-    let currentModel = 'cat';
-    const models = {};
+    let catModel = null;
+    let catPlaced = false;
 
     init();
     animate();
 
     function init() {
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-
       scene = new THREE.Scene();
-
       camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
       const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
@@ -85,27 +48,18 @@
       scene.add(light);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
-      container.appendChild(renderer.domElement);
+      document.body.appendChild(renderer.domElement);
 
-renderer.xr.enabled = true;
-container.appendChild(renderer.domElement);
+      document.body.appendChild(ARButton.createButton(renderer, {
+        requiredFeatures: ['hit-test', 'dom-overlay'],
+        domOverlay: { root: document.body }
+      }));
 
-      
-document.body.appendChild(ARButton.createButton(renderer, {
-  requiredFeatures: ['hit-test', 'dom-overlay'],
-  domOverlay: { root: document.body }
-}));
       const loader = new GLTFLoader();
-
       loader.load('cat.glb', function (gltf) {
-        models['cat'] = gltf.scene;
-      });
-
-      loader.load('dog.glb', function (gltf) {
-        models['dog'] = gltf.scene;
+        catModel = gltf.scene;
       });
 
       const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
@@ -120,22 +74,6 @@ document.body.appendChild(ARButton.createButton(renderer, {
       scene.add(controller);
 
       window.addEventListener('resize', onWindowResize, false);
-
-      // Button event listeners
-      const catButton = document.getElementById('catButton');
-      const dogButton = document.getElementById('dogButton');
-
-      catButton.addEventListener('click', () => {
-        currentModel = 'cat';
-        catButton.classList.add('active');
-        dogButton.classList.remove('active');
-      });
-
-      dogButton.addEventListener('click', () => {
-        currentModel = 'dog';
-        dogButton.classList.add('active');
-        catButton.classList.remove('active');
-      });
     }
 
     function onWindowResize() {
@@ -145,11 +83,12 @@ document.body.appendChild(ARButton.createButton(renderer, {
     }
 
     function onSelect() {
-      if (reticle.visible && models[currentModel]) {
-        const model = clone(models[currentModel]);
+      if (reticle.visible && catModel && !catPlaced) {
+        const model = clone(catModel);
         model.position.setFromMatrixPosition(reticle.matrix);
-        model.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+        model.scale.set(0.5, 0.5, 0.5);
         scene.add(model);
+        catPlaced = true;
       }
     }
 
@@ -157,19 +96,19 @@ document.body.appendChild(ARButton.createButton(renderer, {
       renderer.setAnimationLoop(render);
     }
 
-    function render(timestamp, frame) {
+    function render(_, frame) {
       if (frame) {
         const referenceSpace = renderer.xr.getReferenceSpace();
         const session = renderer.xr.getSession();
 
-        if (hitTestSourceRequested === false) {
-          session.requestReferenceSpace('viewer').then(function (referenceSpace) {
-            session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
+        if (!hitTestSourceRequested) {
+          session.requestReferenceSpace('viewer').then((refSpace) => {
+            session.requestHitTestSource({ space: refSpace }).then((source) => {
               hitTestSource = source;
             });
           });
 
-          session.addEventListener('end', function () {
+          session.addEventListener('end', () => {
             hitTestSourceRequested = false;
             hitTestSource = null;
           });
@@ -179,10 +118,8 @@ document.body.appendChild(ARButton.createButton(renderer, {
 
         if (hitTestSource) {
           const hitTestResults = frame.getHitTestResults(hitTestSource);
-
           if (hitTestResults.length) {
             const hit = hitTestResults[0];
-
             reticle.visible = true;
             reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
           } else {
