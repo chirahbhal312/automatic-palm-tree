@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AR Shape Placer</title>
+  <title>AR Pet Placer</title>
   <style>
     body { margin: 0; overflow: hidden; }
     #ui {
@@ -20,16 +20,24 @@
 </head>
 <body>
   <div id="ui">
-    <button id="squareBtn">Square</button>
-    <button id="circleBtn">Circle</button>
+    <button id="catBtn">Cat</button>
+    <button id="dogBtn">Dog</button>
   </div>
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
     import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
 
-    let camera, scene, renderer;
-    let controller;
-    let currentShape = 'square';
+    let camera, scene, renderer, controller;
+    let currentModel = 'cat';
+
+    const loader = new GLTFLoader();
+
+    // Replace these URLs with the actual location of your GLB files
+    const modelURLs = {
+      cat: 'https://drive.google.com/file/d/1CTZqCoyRVzTSSn5DF0GMN4QzXdyML-d4/view?usp=sharing',
+      dog: 'https://drive.google.com/file/d/1XNNV9jDtgYVpTYACa01dbu--9_yUzGBj/view?usp=sharing'
+    };
 
     init();
     animate();
@@ -45,41 +53,36 @@
 
       document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
 
-      // Controller for tap interaction
       controller = renderer.xr.getController(0);
       controller.addEventListener('select', onSelect);
       scene.add(controller);
 
-      // UI Button events
-      document.getElementById('squareBtn').addEventListener('click', () => {
-        currentShape = 'square';
+      document.getElementById('catBtn').addEventListener('click', () => {
+        currentModel = 'cat';
       });
-      document.getElementById('circleBtn').addEventListener('click', () => {
-        currentShape = 'circle';
+      document.getElementById('dogBtn').addEventListener('click', () => {
+        currentModel = 'dog';
       });
 
-      // Light
       const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
       scene.add(light);
     }
 
     function onSelect() {
-      const geometry = currentShape === 'square'
-        ? new THREE.BoxGeometry(0.1, 0.1, 0.1)
-        : new THREE.CircleGeometry(0.05, 32);
+      const url = modelURLs[currentModel];
 
-      const material = new THREE.MeshStandardMaterial({ color: currentShape === 'square' ? 0x00ff00 : 0xff0000 });
+      loader.load(url, (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(0.2, 0.2, 0.2); // Adjust scale if needed
 
-      const mesh = new THREE.Mesh(geometry, material);
-      if (currentShape === 'circle') {
-        mesh.rotation.x = -Math.PI / 2; // lay it flat
-      }
+        const position = controller.position.clone();
+        const direction = new THREE.Vector3(0, 0, -0.3).applyQuaternion(controller.quaternion);
+        model.position.copy(position).add(direction);
 
-      const position = controller.position.clone();
-      const direction = new THREE.Vector3(0, 0, -0.3).applyQuaternion(controller.quaternion);
-      mesh.position.copy(position).add(direction);
-
-      scene.add(mesh);
+        scene.add(model);
+      }, undefined, (error) => {
+        console.error('Error loading model:', error);
+      });
     }
 
     function animate() {
