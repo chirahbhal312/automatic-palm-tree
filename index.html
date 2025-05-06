@@ -90,6 +90,10 @@
       renderer.xr.enabled = true;
       container.appendChild(renderer.domElement);
 
+renderer.xr.enabled = true;
+container.appendChild(renderer.domElement);
+
+      
 document.body.appendChild(ARButton.createButton(renderer, {
   requiredFeatures: ['hit-test', 'dom-overlay'],
   domOverlay: { root: document.body }
