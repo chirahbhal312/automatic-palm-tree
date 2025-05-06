@@ -5,7 +5,6 @@
   <title>AR Pet Placer</title>
   <style>
     body { margin: 0; overflow: hidden; }
-    /* Hiding the regular HTML UI buttons */
     #ui {
       position: absolute;
       top: 10px;
@@ -17,6 +16,14 @@
       margin: 5px;
       padding: 10px;
     }
+    /* Style for AR button if needed */
+    .ar-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100; /* Ensure it appears above other elements */
+    }
   </style>
 </head>
 <body>
@@ -24,7 +31,6 @@
     <button id="catBtn">Cat</button>
     <button id="dogBtn">Dog</button>
   </div>
-
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
@@ -32,12 +38,12 @@
 
     let camera, scene, renderer, controller;
     let currentModel = 'cat';
-    let buttons = [];
+
     const loader = new GLTFLoader();
 
     // Replace these URLs with the actual location of your GLB files
     const modelURLs = {
-      cat: 'https://drive.google.com/file/d/1CTZqCoyRVzTSSn5DF0GMN4QzXdyML-d4/view?usp=drive_link',
+      cat: 'https://drive.google.com/file/d/1CTZqCoyRVzTSSn5DF0GMN4QzXdyML-d4/view?usp=sharing',
       dog: 'https://drive.google.com/file/d/1XNNV9jDtgYVpTYACa01dbu--9_yUzGBj/view?usp=sharing'
     };
 
@@ -53,30 +59,24 @@
       renderer.xr.enabled = true;
       document.body.appendChild(renderer.domElement);
 
-      // Create AR button
-      document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+      // Ensure AR Button is visible above everything else
+      const arButton = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
+      arButton.classList.add('ar-button');  // Add specific class for styling
+      document.body.appendChild(arButton);
 
       controller = renderer.xr.getController(0);
       controller.addEventListener('select', onSelect);
       scene.add(controller);
 
-      // Setup buttons in AR scene
-      createARButton('cat', -0.3, 0, 0); // Place the Cat button
-      createARButton('dog', 0.3, 0, 0); // Place the Dog button
+      document.getElementById('catBtn').addEventListener('click', () => {
+        currentModel = 'cat';
+      });
+      document.getElementById('dogBtn').addEventListener('click', () => {
+        currentModel = 'dog';
+      });
 
       const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
       scene.add(light);
-    }
-
-    // Function to create buttons as 3D objects in AR
-    function createARButton(modelName, x, y, z) {
-      const geometry = new THREE.PlaneGeometry(0.3, 0.1);
-      const material = new THREE.MeshBasicMaterial({ color: modelName === 'cat' ? 0x00ff00 : 0xff0000, transparent: true, opacity: 0.7 });
-      const button = new THREE.Mesh(geometry, material);
-      button.position.set(x, y, z);
-      button.userData = { modelName }; // Store model choice for interaction
-      scene.add(button);
-      buttons.push(button);
     }
 
     function onSelect() {
@@ -96,20 +96,8 @@
       });
     }
 
-    // Function to update the current model when a button is selected
-    function checkButtonSelection() {
-      for (const button of buttons) {
-        const distance = camera.position.distanceTo(button.position);
-        if (distance < 0.5) { // If the camera is close to the button
-          currentModel = button.userData.modelName; // Set the model type based on the button
-          break;
-        }
-      }
-    }
-
     function animate() {
       renderer.setAnimationLoop(() => {
-        checkButtonSelection(); // Check if any button is selected
         renderer.render(scene, camera);
       });
     }
