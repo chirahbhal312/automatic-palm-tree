@@ -16,6 +16,14 @@
       margin: 5px;
       padding: 10px;
     }
+    /* Style for AR button if needed */
+    .ar-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100; /* Ensure it appears above other elements */
+    }
   </style>
 </head>
 <body>
@@ -33,10 +41,10 @@
 
     const loader = new GLTFLoader();
 
-    // Using local model files
+    // Replace these URLs with the actual location of your GLB files
     const modelURLs = {
-      cat: 'cat.glb',
-      dog: 'dog.glb'
+      cat: 'https://drive.google.com/file/d/1CTZqCoyRVzTSSn5DF0GMN4QzXdyML-d4/view?usp=sharing',
+      dog: 'https://drive.google.com/file/d/1XNNV9jDtgYVpTYACa01dbu--9_yUzGBj/view?usp=sharing'
     };
 
     init();
@@ -51,10 +59,9 @@
       renderer.xr.enabled = true;
       document.body.appendChild(renderer.domElement);
 
-      // Create AR button with hit-test feature
-      const arButton = ARButton.createButton(renderer, { 
-        requiredFeatures: ['hit-test'] 
-      });
+      // Ensure AR Button is visible above everything else
+      const arButton = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
+      arButton.classList.add('ar-button');  // Add specific class for styling
       document.body.appendChild(arButton);
 
       controller = renderer.xr.getController(0);
@@ -77,7 +84,7 @@
 
       loader.load(url, (gltf) => {
         const model = gltf.scene;
-        model.scale.set(0.2, 0.2, 0.2);
+        model.scale.set(0.2, 0.2, 0.2); // Adjust scale if needed
 
         const position = controller.position.clone();
         const direction = new THREE.Vector3(0, 0, -0.3).applyQuaternion(controller.quaternion);
