@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AR Shape Placer</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+    }
+    button {
+      font-size: 18px;
+      margin: 5px;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button id="squareBtn">Square</button>
+    <button id="circleBtn">Circle</button>
+  </div>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+    import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js';
+
+    let camera, scene, renderer;
+    let controller;
+    let currentShape = 'square';
+
+    init();
+    animate();
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+
+      // Controller for tap interaction
+      controller = renderer.xr.getController(0);
+      controller.addEventListener('select', onSelect);
+      scene.add(controller);
+
+      // UI Button events
+      document.getElementById('squareBtn').addEventListener('click', () => {
+        currentShape = 'square';
+      });
+      document.getElementById('circleBtn').addEventListener('click', () => {
+        currentShape = 'circle';
+      });
+
+      // Light
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      scene.add(light);
+    }
+
+    function onSelect() {
+      const geometry = currentShape === 'square'
+        ? new THREE.BoxGeometry(0.1, 0.1, 0.1)
+        : new THREE.CircleGeometry(0.05, 32);
+
+      const material = new THREE.MeshStandardMaterial({ color: currentShape === 'square' ? 0x00ff00 : 0xff0000 });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      if (currentShape === 'circle') {
+        mesh.rotation.x = -Math.PI / 2; // lay it flat
+      }
+
+      const position = controller.position.clone();
+      const direction = new THREE.Vector3(0, 0, -0.3).applyQuaternion(controller.quaternion);
+      mesh.position.copy(position).add(direction);
+
+      scene.add(mesh);
+    }
+
+    function animate() {
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
+    }
+  </script>
+</body>
+</html>
