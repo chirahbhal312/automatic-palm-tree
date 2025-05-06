@@ -16,15 +16,6 @@
       margin: 5px;
       padding: 10px;
     }
-    #xr-status {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      color: white;
-      background: rgba(0,0,0,0.5);
-      padding: 5px;
-      border-radius: 5px;
-    }
   </style>
 </head>
 <body>
@@ -32,7 +23,6 @@
     <button id="catBtn">Cat</button>
     <button id="dogBtn">Dog</button>
   </div>
-  <div id="xr-status">Checking WebXR support...</div>
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
@@ -43,7 +33,7 @@
 
     const loader = new GLTFLoader();
 
-    // Using local model files (assuming they're in the same directory)
+    // Using local model files
     const modelURLs = {
       cat: 'cat.glb',
       dog: 'dog.glb'
@@ -52,7 +42,7 @@
     init();
     animate();
 
-    async function init() {
+    function init() {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
@@ -61,31 +51,11 @@
       renderer.xr.enabled = true;
       document.body.appendChild(renderer.domElement);
 
-      // Check WebXR support
-      const statusElement = document.getElementById('xr-status');
-      
-      if (!navigator.xr) {
-        statusElement.textContent = 'WebXR not supported in this browser';
-        return;
-      }
-
-      try {
-        const supported = await navigator.xr.isSessionSupported('immersive-ar');
-        if (supported) {
-          // Create AR button with required features
-          const arButton = ARButton.createButton(renderer, { 
-            requiredFeatures: ['hit-test', 'dom-overlay'],
-            domOverlay: { root: document.body }
-          });
-          document.body.appendChild(arButton);
-          statusElement.textContent = 'AR supported - Ready!';
-        } else {
-          statusElement.textContent = 'AR not supported on this device';
-        }
-      } catch (error) {
-        console.error('Error checking AR support:', error);
-        statusElement.textContent = 'Error checking AR support';
-      }
+      // Create AR button with hit-test feature
+      const arButton = ARButton.createButton(renderer, { 
+        requiredFeatures: ['hit-test'] 
+      });
+      document.body.appendChild(arButton);
 
       controller = renderer.xr.getController(0);
       controller.addEventListener('select', onSelect);
@@ -100,12 +70,6 @@
 
       const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
       scene.add(light);
-
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
     }
 
     function onSelect() {
@@ -122,7 +86,6 @@
         scene.add(model);
       }, undefined, (error) => {
         console.error('Error loading model:', error);
-        document.getElementById('xr-status').textContent = 'Error loading model: ' + error.message;
       });
     }
 
