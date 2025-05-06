@@ -53,6 +53,18 @@ function init() {
   light.position.set(0.5, 1, 0.25);
   scene.add(light);
 
+  // Add ambient light (already there, but keep it)
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 0.6);
+hemiLight.position.set(0, 1, 0);
+scene.add(hemiLight);
+
+// Add a directional light for shadows and depth
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(3, 10, 4);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.xr.enabled = true;
