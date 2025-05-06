@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -36,6 +37,7 @@ let hitTestSourceRequested = false;
 let catModel = null;
 let catPlaced = false;
 let activeModel = null;
+let lightAboveCat = null;
 
 let isDragging = false;
 let previousTouch = null;
@@ -49,21 +51,21 @@ function init() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-  const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 100);
-  light.position.set(0.5, 1, 0.25);
-  scene.add(light);
-
   // Add ambient light (already there, but keep it)
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 100);
-hemiLight.position.set(0, 1, 0);
-scene.add(hemiLight);
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 100);
+  hemiLight.position.set(0, 1, 0);
+  scene.add(hemiLight);
 
-// Add a directional light for shadows and depth
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(3, 10, 4);
-dirLight.castShadow = true;
-scene.add(dirLight);
+  // Add a directional light for shadows and depth
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(3, 10, 4);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
 
+  // Add light above cat model that follows it
+  lightAboveCat = new THREE.PointLight(0xffffff, 1, 10);
+  lightAboveCat.position.set(0, 2, 0); // 2 units above the cat initially
+  scene.add(lightAboveCat);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -190,6 +192,11 @@ function render(_, frame) {
         const hit = hitTestResults[0];
         reticle.visible = true;
         reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+
+        if (activeModel) {
+          // Update light position to follow the model
+          lightAboveCat.position.set(activeModel.position.x, activeModel.position.y + 2, activeModel.position.z);
+        }
       } else {
         reticle.visible = false;
       }
@@ -199,5 +206,6 @@ function render(_, frame) {
   renderer.render(scene, camera);
 }
 </script>
+
 </body>
 </html>
